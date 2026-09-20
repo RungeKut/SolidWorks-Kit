@@ -8,10 +8,17 @@
   * нет двух файлов с одинаковым id;
   * id в шапке совпадает с именем файла;
   * записи со status: проверено имеют поле verified;
-  * внутренние ссылки ведут на существующие файлы.
+  * внутренние ссылки ведут на существующие файлы;
+  * НИ ОДИН файл набора не упоминает постороннее изделие или проект.
+
+Последняя проверка обязательна перед каждым коммитом: репозиторий публичный,
+и название изделия, попавшее в набор, утекает наружу. Стоп-слова лежат в
+tools/stoplist.txt; при работе над изделием укажите ещё и папку проекта —
+тогда его имя и имена его моделей станут стоп-словами автоматически.
 
 Запуск:
     python tools/check_docs.py
+    python tools/check_docs.py --project "C:\путь\к\папке\проекта"
 """
 import io
 import os
@@ -61,14 +68,74 @@ def rel(path):
     return os.path.relpath(path, KNOWLEDGE).replace("\\", "/")
 
 
-def main():
+STOPLIST = os.path.join(ROOT, "tools", "stoplist.txt")
+SKIP = ("tools/stoplist.txt",)   # сам код обязан быть чистым и проверяется
+TEXT_EXT = (".md", ".py", ".ps1", ".txt", ".cfg", ".toml", ".json", ".yml")
+# слишком общие, чтобы быть приметой изделия
+GENERIC = set("model проект part assembly деталь сборка test main build "
+              "params kit work temp data".split())
+
+
+def repo_files():
+    """Все текстовые файлы набора, кроме служебных и самого стоп-листа."""
+    out = []
+    for dirpath, dirnames, filenames in os.walk(ROOT):
+        dirnames[:] = [d for d in dirnames
+                       if d not in (".git", "__pycache__", ".venv")]
+        for fn in sorted(filenames):
+            if not fn.endswith(TEXT_EXT):
+                continue
+            full = os.path.join(dirpath, fn)
+            r = os.path.relpath(full, ROOT).replace(os.sep, "/")
+            if r in SKIP:
+                continue
+            out.append(full)
+    return sorted(out)
+
+
+def stop_words():
+    """Стоп-слова из tools/stoplist.txt."""
+    if not os.path.exists(STOPLIST):
+        return set()
+    out = set()
+    for line in read(STOPLIST).splitlines():
+        line = line.split("#", 1)[0].strip()
+        if line:
+            out.add(line)
+    return out
+
+
+def project_words(project_dir):
+    """Приметы изделия, выведенные из папки проекта: её имя и имена моделей.
+
+    Помнить про стоп-лист перед каждым коммитом невозможно, а путь к папке
+    проекта в работе всегда под рукой — отсюда этот режим.
+    """
+    if not project_dir or not os.path.isdir(project_dir):
+        return set()
+    names = [os.path.basename(os.path.abspath(project_dir))]
+    for fn in os.listdir(project_dir):
+        stem, ext = os.path.splitext(fn)
+        if ext.upper() in (".SLDPRT", ".SLDASM", ".SLDDRW", ".STEP"):
+            names.append(stem)
+    out = set()
+    for name in names:
+        for token in re.split(r"[^0-9A-Za-zА-Яа-яЁё]+", name):
+            if len(token) >= 4 and token.lower() not in GENERIC:
+                out.add(token)
+    return out
+
+
+def main(project_dir=None):
     problems = []
     notes = []
     files = knowledge_files()
     ids = {}
 
     print("База знаний: %s" % KNOWLEDGE)
-    print("Файлов найдено: %d\n" % len(files))
+    print("Файлов найдено: %d" % len(files))
+    print("Проверка на стоп-слова: %d файлов набора\n"
+          % len(repo_files()))
 
     # --- шапки -----------------------------------------------------------
     for path in files:
@@ -129,16 +196,24 @@ def main():
                 problems.append("%s: битая ссылка -> %s" % (rel(path), link))
 
     # --- посторонние привязки ----------------------------------------------
-    # База должна читаться как знание об инструменте, а не как история его
-    # сборки: упоминаний сторонних проектов в ней быть не должно.
-    FOREIGN = ("CyberWood", "cybertruck", "Квартира_3А",
-               "SolidWorks-MCP-Установка")
-    for path in files:
-        text = read(path)
-        for word in FOREIGN:
-            if word in text:
-                problems.append("%s: упоминание стороннего проекта %r "
-                                "(правило 1)" % (rel(path), word))
+    # Набор должен читаться как знание об инструменте, а не как история его
+    # сборки: упоминаний конкретных изделий и проектов в нём быть не должно.
+    # Проверяется ВЕСЬ набор, а не только knowledge/: название изделия однажды
+    # утекло через CHANGELOG.md, который в прежнюю проверку не попадал.
+    # Сравнение регистронезависимое: прежняя проверка сверяла регистр, и
+    # название с большой буквы прошло мимо строчного стоп-слова.
+    project = project_words(project_dir)
+    if project:
+        print("Приметы изделия из папки проекта: %s\n"
+              % ", ".join(sorted(project)))
+    words = stop_words() | project
+    for path in repo_files():
+        text = read(path).lower()
+        r = os.path.relpath(path, ROOT).replace(os.sep, "/")
+        for word in sorted(words):
+            if word.lower() in text:
+                problems.append("%s: упоминание постороннего изделия или "
+                                "проекта %r (правило 1)" % (r, word))
 
     # --- вывод -------------------------------------------------------------
     if problems:
@@ -160,4 +235,12 @@ def main():
 if __name__ == "__main__":
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8",
                                   errors="replace")
-    sys.exit(main())
+    argv = sys.argv[1:]
+    proj = None
+    if "--project" in argv:
+        i = argv.index("--project")
+        if i + 1 >= len(argv):
+            print("--project требует путь к папке проекта")
+            sys.exit(2)
+        proj = argv[i + 1]
+    sys.exit(main(proj))
