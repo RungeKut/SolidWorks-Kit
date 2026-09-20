@@ -221,7 +221,7 @@ def sketch_on(doc, plane_index, draw):
 
 def extrude(doc, sketch=None, depth=0.0, end=BLIND, reverse=False,
             merge=True, start_offset=0.0, flip_start=False, depth2=0.0,
-            both=False, draft=0.0):
+            both=False, draft=0.0, draft_outward=True):
     """Вытяжка выбранного (или переданного) эскиза.
 
     depth        — глубина, мм
@@ -230,6 +230,8 @@ def extrude(doc, sketch=None, depth=0.0, end=BLIND, reverse=False,
     start_offset — начать не от плоскости эскиза, а со смещением, мм
     both         — две глухие стороны по depth и depth2. Надёжная замена
                    MIDPLANE при позднем связывании (см. 30_ГРАБЛИ/30-03)
+    draft        — угол уклона, градусы. Уклон заметает грань, наклонную к
+                   плоскости эскиза (см. 20_ПРИЁМЫ/20-04)
 
     FeatureExtrusion3 принимает 23 позиционных аргумента в этом порядке.
     Проверено на SolidWorks 2025 SP04; менять местами нельзя.
@@ -254,8 +256,8 @@ def extrude(doc, sketch=None, depth=0.0, end=BLIND, reverse=False,
         t2,                   # 5  t2: условие окончания, направление 2
         d1,                   # 6  d1: глубина 1, м
         d2,                   # 7  d2: глубина 2, м
-        False, False,         # 8-9   dchk1/dchk2: уклон включён
-        False, False,         # 10-11 ddir1/ddir2: уклон наружу
+        bool(draft), False,   # 8-9   dchk1/dchk2: уклон включён
+        bool(draft_outward), False,   # 10-11 ddir1/ddir2: уклон наружу
         rad(draft) or DRAFT,  # 12 dang1: угол уклона 1, рад
         DRAFT,                # 13 dang2
         False, False,         # 14-15 offsetReverse1/2
@@ -277,7 +279,7 @@ def extrude(doc, sketch=None, depth=0.0, end=BLIND, reverse=False,
 
 
 def _cut_once(doc, sk, depth, end, reverse, start_offset, flip_start,
-              both_directions):
+              both_directions, draft=0.0, draft_outward=True):
     doc.ClearSelection2(True)
     call(sk, "Select2", False, 0)
 
@@ -295,9 +297,9 @@ def _cut_once(doc, sk, depth, end, reverse, start_offset, flip_start,
         t2,                 # 5  t2
         m(depth),           # 6  d1
         m(depth),           # 7  d2
-        False, False,       # 8-9   уклон включён
-        False, False,       # 10-11 уклон наружу
-        DRAFT, DRAFT,       # 12-13 углы уклона
+        bool(draft), False,           # 8-9   уклон включён
+        bool(draft_outward), False,   # 10-11 уклон наружу
+        rad(draft) or DRAFT, DRAFT,   # 12-13 углы уклона
         False, False,       # 14-15 offsetReverse
         False, False,       # 16-17 translateSurface
         False,              # 18 normalCut
@@ -317,7 +319,7 @@ def _cut_once(doc, sk, depth, end, reverse, start_offset, flip_start,
 
 def cut(doc, sketch=None, depth=0.0, end=THROUGH_ALL, reverse=True,
         start_offset=0.0, flip_start=False, both_directions=False,
-        auto_direction=True, verbose=False):
+        auto_direction=True, verbose=False, draft=0.0, draft_outward=True):
     """Вырез по эскизу.
 
     ВАЖНО: направление у выреза ПРОТИВОПОЛОЖНО вытяжке. Проверено опытом
@@ -334,16 +336,22 @@ def cut(doc, sketch=None, depth=0.0, end=THROUGH_ALL, reverse=True,
     both_directions=True — сквозной рез в обе стороны. Нужен, когда эскиз
     лежит в плоскости симметрии: односторонний рез прорежет только один борт.
 
+    draft — угол уклона, градусы. Вырез с уклоном режет плоскостью, наклонной
+    к плоскости эскиза: так делаются скосы, не перпендикулярные базовым
+    плоскостям, без справочных плоскостей и лофтов (см. 20_ПРИЁМЫ/20-04).
+    Сторону задаёт draft_outward; угадать её заранее нельзя, проверяйте
+    объёмом до и после.
+
     FeatureCut4 в SolidWorks 2025 принимает 27 аргументов. Сигнатура из
     старой документации (26 аргументов) НЕ проходит.
     """
     sk = sketch if sketch is not None else last_feature(doc)
 
     feat = _cut_once(doc, sk, depth, end, reverse, start_offset, flip_start,
-                     both_directions)
+                     both_directions, draft, draft_outward)
     if feat is None and auto_direction:
         feat = _cut_once(doc, sk, depth, end, not reverse, start_offset,
-                         flip_start, both_directions)
+                         flip_start, both_directions, draft, draft_outward)
         if feat is not None and verbose:
             print("    [cut] сработало обратное направление reverse=%s"
                   % (not reverse))
