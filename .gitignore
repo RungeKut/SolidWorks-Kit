@@ -1,0 +1,29 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# --- вывод тестов и прогонов ---
+tests/vyvod/
+tests/selftest_out/
+
+# --- файлы SolidWorks ---
+# Модели в репозиторий не кладём: это инструмент, а не архив проектов.
+# Тестовые модели пересоздаются запуском tests/.
+*.SLDPRT
+*.SLDASM
+*.SLDDRW
+*.STEP
+*.STP
+*.IGS
+*.X_T
+*.STL
+# служебные метки блокировки SolidWorks
+~$*
+
+# --- прочее ---
+*.bak
+Thumbs.db
+desktop.ini
+.DS_Store
