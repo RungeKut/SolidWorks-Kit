@@ -99,7 +99,7 @@ git add -A && git commit -m "кратко что и почему" && git push
 
 ```
 Смоделируй в SolidWorks кронштейн крепления редуктора.
-Папка проекта: C:\Users\Work\Desktop\Кронштейн
+Папка проекта: D:\Работа\Кронштейн
 
 Размеры:
   плита основания      180 × 120 × 12 мм
@@ -152,8 +152,8 @@ Y — вверх.
 SolidWorks должен быть запущен.
 
 ```python
-import sys
-sys.path.insert(0, r"C:\Users\Work\Desktop\SolidWorks-Kit")
+import os, sys
+sys.path.insert(0, os.environ["SWKIT_HOME"])   # ставит tools/setup.ps1
 import swkit as sw
 
 sw.utf8_console()
@@ -203,7 +203,7 @@ sw.save_as(doc, r"C:\проект\Плита.SLDPRT")
 Скилл подключён junction-ссылкой, поэтому правки в наборе действуют сразу:
 
 ```
-C:\Users\Work\.claude\skills\solidworks  ->  ...\SolidWorks-Kit\skill
+%USERPROFILE%\.claude\skills\solidworks  ->  <репозиторий>\skill
 ```
 
 ---
