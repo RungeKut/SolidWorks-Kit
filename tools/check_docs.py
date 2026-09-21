@@ -9,7 +9,8 @@
   * id в шапке совпадает с именем файла;
   * записи со status: проверено имеют поле verified;
   * внутренние ссылки ведут на существующие файлы;
-  * НИ ОДИН файл набора не упоминает постороннее изделие или проект.
+  * НИ ОДИН файл набора не упоминает постороннее изделие или проект;
+  * на этой машине включён хук commit-msg, который проверяет текст коммита.
 
 Последняя проверка обязательна перед каждым коммитом: репозиторий публичный,
 и название изделия, попавшее в набор, утекает наружу. Стоп-слова лежат в
@@ -23,6 +24,7 @@ tools/stoplist.txt; при работе над изделием укажите �
 import io
 import os
 import re
+import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -74,6 +76,23 @@ TEXT_EXT = (".md", ".py", ".ps1", ".txt", ".cfg", ".toml", ".json", ".yml")
 # слишком общие, чтобы быть приметой изделия
 GENERIC = set("model проект part assembly деталь сборка test main build "
               "params kit work temp data".split())
+
+
+def hook_enabled():
+    """Включён ли хук commit-msg.
+
+    Хук лежит в репозитории, но срабатывает только там, где выставлен
+    core.hooksPath. На свежей машине его нет, и текст коммита не проверяет
+    никто — ровно та дыра, через которую название изделия уже утекало.
+    """
+    try:
+        out = subprocess.check_output(
+            ["git", "config", "--get", "core.hooksPath"],
+            cwd=ROOT, stderr=subprocess.DEVNULL)
+        return out.decode("utf-8", "replace").strip().replace("\\", "/") \
+            == "tools/hooks"
+    except Exception:
+        return False
 
 
 def repo_files():
@@ -214,6 +233,13 @@ def main(project_dir=None):
             if word.lower() in text:
                 problems.append("%s: упоминание постороннего изделия или "
                                 "проекта %r (правило 1)" % (r, word))
+
+    # --- хук на текст коммита ----------------------------------------------
+    if not hook_enabled():
+        problems.append(
+            "хук commit-msg не включён на этой машине — текст коммита никто "
+            "не проверяет. Лечится одной командой: "
+            "git config core.hooksPath tools/hooks (её же делает setup.ps1)")
 
     # --- вывод -------------------------------------------------------------
     if problems:
