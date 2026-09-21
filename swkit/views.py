@@ -104,12 +104,30 @@ VIEWS_Z_UP = {
 }
 
 
+#: Имена метода «затенённый с кромками» в разных сборках. В API есть
+#: историческая опечатка (Shadere), и ни один из вариантов не обязан
+#: существовать: на 2025 SP04 при позднем связывании нет ни одного из них.
+_EDGE_NAMES = ("ViewDisplayShaderewithedges", "ViewDisplayShadedwithedges",
+               "ViewDisplayShadedWithEdges")
+
+
 def shaded(doc, with_edges=False):
-    """Затенённый режим отображения — для снимков."""
+    """Затенённый режим отображения — для снимков.
+
+    with_edges=True пробует включить показ кромок и МОЛЧА отступает к
+    обычному затенению, если метода нет. Раньше здесь был безусловный вызов
+    несуществующего имени: снимок падал с AttributeError уже после того, как
+    геометрия построена, и терялся весь прогон.
+    """
     if with_edges:
-        call(doc, "ViewDisplayShaderewithedges")
-    else:
-        call(doc, "ViewDisplayShaded")
+        for name in _EDGE_NAMES:
+            try:
+                getattr(doc, name)()
+                return True
+            except Exception:
+                continue
+    call(doc, "ViewDisplayShaded")
+    return False
 
 
 def shot(doc, path, view=None, sw=None, up=None, normal=None):
