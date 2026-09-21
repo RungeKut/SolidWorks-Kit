@@ -29,6 +29,9 @@ cd SolidWorks-Kit
 powershell -ExecutionPolicy Bypass -File tools\setup.ps1
 ```
 
+Либо двойной щелчок по `Install-skill.bat` в корне набора — та же
+установка, без набора команды руками.
+
 Скрипт создаёт junction `~\.claude\skills\solidworks` -> `<репозиторий>\skill`,
 прописывает `SWKIT_HOME`, проверяет Python (нужен **64-bit**) и ставит
 `pywin32`. Прав администратора не требует.

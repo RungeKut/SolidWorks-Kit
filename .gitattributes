@@ -5,6 +5,7 @@
 # Скрипты PowerShell должны иметь CRLF, иначе часть версий Windows
 # спотыкается на них.
 *.ps1 text eol=crlf
+*.bat text eol=crlf
 
 # Бинарное не трогать.
 *.png binary

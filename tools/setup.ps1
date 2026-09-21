@@ -1,4 +1,4 @@
-# Установка SolidWorks-Kit на машине.
+﻿# Установка SolidWorks-Kit на машине.
 #
 # Запускать из любого места после клонирования репозитория:
 #     powershell -ExecutionPolicy Bypass -File tools\setup.ps1
@@ -85,8 +85,16 @@ if ($arch -ne "64bit") {
 }
 Write-Host "OK   разрядность: 64bit"
 
-& $py -c "import win32com.client" 2>$null
-if ($LASTEXITCODE -ne 0) {
+# Вывод python перенаправляется, поэтому на время проверки снимаем Stop:
+# в Windows PowerShell 5.1 stderr нативной программы при $ErrorActionPreference
+# = Stop превращается в терминирующую ошибку, и скрипт падает вместо установки.
+$prev = $ErrorActionPreference
+$ErrorActionPreference = "Continue"
+& $py -c "import win32com.client" 2>&1 | Out-Null
+$hasPywin32 = ($LASTEXITCODE -eq 0)
+$ErrorActionPreference = $prev
+
+if (-not $hasPywin32) {
     Write-Host "     pywin32 не установлен — ставлю"
     & $py -m pip install --quiet pywin32
 }
