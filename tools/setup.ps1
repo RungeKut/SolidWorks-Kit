@@ -8,7 +8,9 @@
 #   2. создаёт junction ~\.claude\skills\solidworks -> <корень>\skill,
 #      чтобы скилл подхватывался Claude Code из любого каталога;
 #   3. прописывает переменную SWKIT_HOME в профиль пользователя;
-#   4. проверяет Python, его разрядность и pywin32.
+#   4. включает хук commit-msg, который не пропускает в сообщение коммита
+#      название проектируемого изделия;
+#   5. проверяет Python, его разрядность и pywin32.
 #
 # Прав администратора не требует: junction (mklink /J) создаётся без них,
 # в отличие от символической ссылки.
@@ -58,7 +60,21 @@ if (Test-Path $link) {
 $env:SWKIT_HOME = $root
 Write-Host "OK   SWKIT_HOME = $root (в новых консолях подхватится сам)"
 
-# --- 3. Python -------------------------------------------------------------
+# --- 3. хук на текст коммита -----------------------------------------------
+# Хук лежит в репозитории и включается через core.hooksPath, а не копируется
+# в .git\hooks: так он приезжает на все машины вместе с набором.
+if (Get-Command git -ErrorAction SilentlyContinue) {
+    Push-Location $root
+    git config core.hooksPath tools/hooks
+    Pop-Location
+    Write-Host "OK   core.hooksPath = tools/hooks (проверка текста коммита)"
+    Write-Host "     папку текущего проекта можно добавить к стоп-словам:"
+    Write-Host "     git config swkit.project '<путь к папке проекта>'"
+} else {
+    Write-Host "НЕТ  git не найден — хук commit-msg не включён"
+}
+
+# --- 4. Python -------------------------------------------------------------
 $py = $null
 foreach ($c in @(
     "$env:LOCALAPPDATA\Programs\Python\Python313\python.exe",
@@ -100,7 +116,7 @@ if (-not $hasPywin32) {
 }
 Write-Host "OK   pywin32 на месте"
 
-# --- 4. проверка библиотеки ------------------------------------------------
+# --- 5. проверка библиотеки ------------------------------------------------
 & $py -c "import sys; sys.path.insert(0, r'$root'); import swkit; print('OK   swkit', swkit.__version__)"
 
 Write-Host ""
