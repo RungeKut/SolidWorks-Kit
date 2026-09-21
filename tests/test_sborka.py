@@ -11,7 +11,31 @@ SolidWorks должен быть запущен. Код возврата 0 — �
 import os
 import sys
 
-sys.path.insert(0, r"C:\Users\Work\Desktop\SolidWorks-Kit")
+def kit_root():
+    """Найти корень набора, не завися от того, куда он склонирован.
+
+    SWKIT_HOME (её ставит tools/setup.ps1), иначе junction скилла, иначе
+    папка на два уровня выше этого файла. Тот же порядок, что в
+    templates/new_project/build.py.
+    """
+    env = os.environ.get("SWKIT_HOME")
+    if env and os.path.isdir(os.path.join(env, "swkit")):
+        return env
+    junction = os.path.join(os.path.expanduser("~"), ".claude", "skills",
+                            "solidworks")
+    if os.path.isdir(junction):
+        cand = os.path.dirname(os.path.realpath(junction))
+        if os.path.isdir(os.path.join(cand, "swkit")):
+            return cand
+    cand = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if os.path.isdir(os.path.join(cand, "swkit")):
+        return cand
+    raise RuntimeError(
+        "SolidWorks-Kit не найден. Запустите Install-skill.bat из репозитория "
+        "или задайте переменную окружения SWKIT_HOME.")
+
+
+sys.path.insert(0, kit_root())
 import swkit as sw
 
 sw.utf8_console()
