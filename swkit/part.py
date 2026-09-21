@@ -146,13 +146,22 @@ class Sketch:
         with Sketch(doc, part.TOP) as sk:
             sk.rect(0, 0, 1000, 500)
         extrude(doc, sk.feature, 200)
+
+    На время рисования включается `AddToDB`: геометрия кладётся прямо в базу
+    эскиза, мимо механизма привязок. Без этого SolidWorks молча подтягивает
+    новые точки к соседним отрезкам эскиза И к рёбрам уже построенной модели —
+    размер выходит чужим, ошибки при этом нет (см. 30_ГРАБЛИ/30-09).
+    `add_to_db=False` возвращает прежнее поведение, если привязки зачем-то
+    нужны.
     """
 
-    def __init__(self, doc, plane_index=FRONT, plane=None):
+    def __init__(self, doc, plane_index=FRONT, plane=None, add_to_db=True):
         self.doc = doc
         self.plane_index = plane_index
         self.plane = plane
+        self.add_to_db = add_to_db
         self.feature = None
+        self._saved = None
 
     def __enter__(self):
         if self.plane is not None:
@@ -160,11 +169,20 @@ class Sketch:
             call(self.plane, "Select2", False, 0)
         else:
             select_plane(self.doc, self.plane_index)
-        self.doc.SketchManager.InsertSketch(True)
+        sm = self.doc.SketchManager
+        sm.InsertSketch(True)
+        if self.add_to_db:
+            self._saved = (sm.AddToDB, sm.DisplayWhenAdded)
+            sm.AddToDB = True
+            sm.DisplayWhenAdded = False
         return self
 
     def __exit__(self, *exc):
-        self.doc.SketchManager.InsertSketch(True)
+        sm = self.doc.SketchManager
+        if self._saved is not None:
+            sm.AddToDB, sm.DisplayWhenAdded = self._saved
+            self._saved = None
+        sm.InsertSketch(True)
         self.doc.ClearSelection2(True)
         self.feature = last_feature(self.doc)
         return False
