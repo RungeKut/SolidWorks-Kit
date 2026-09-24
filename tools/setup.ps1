@@ -71,6 +71,18 @@ if (Get-Command git -ErrorAction SilentlyContinue) {
     Write-Host "OK   core.hooksPath = tools/hooks (проверка текста коммита)"
     Write-Host "     папку текущего проекта можно добавить к стоп-словам:"
     Write-Host "     git config swkit.project '<путь к папке проекта>'"
+    # Автор коммитов — публичный и только для этого клона: иначе git возьмёт
+    # глобальные рабочие имя и адрес и опубликует их (40-02).
+    Push-Location $root
+    $author = git config --local --get user.email
+    Pop-Location
+    if ($author) {
+        Write-Host "OK   автор коммитов этого клона: $author"
+    } else {
+        Write-Host "НЕТ  автор коммитов не задан — уйдут глобальные (рабочие) имя и адрес."
+        Write-Host "     git config user.name  '<публичное имя>'"
+        Write-Host "     git config user.email '<публичный адрес>'"
+    }
 } else {
     Write-Host "НЕТ  git не найден — хук commit-msg не включён"
 }
