@@ -203,6 +203,22 @@ def main(project_dir=None):
         for l in sorted(linked):
             if l not in existing and not l.startswith(".."):
                 problems.append("INDEX.md ссылается на несуществующий %s" % l)
+        # Строка таблицы обязана иметь столько ячеек, сколько заголовок.
+        # Правка индекса однажды вклеила строку таблицы граблей внутрь трёх
+        # строк поиска по симптому — ссылки при этом остались живыми, и
+        # прежние проверки порчи не увидели.
+        width = None
+        for n, line in enumerate(index_text.splitlines(), 1):
+            if not line.startswith("|"):
+                width = None
+                continue
+            cells = line.count("|")
+            if width is None:
+                width = cells
+            elif cells != width:
+                problems.append("INDEX.md, строка %d: %d ячеек вместо %d — "
+                                "таблица испорчена" % (n, cells - 1,
+                                                        width - 1))
 
     # --- внутренние ссылки ------------------------------------------------
     for path in files:
