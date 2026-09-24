@@ -17,6 +17,11 @@
 tools/stoplist.txt; при работе над изделием укажите ещё и папку проекта —
 тогда его имя и имена его моделей станут стоп-словами автоматически.
 
+tools/stoplist.txt — ЛОКАЛЬНЫЙ файл: он в .gitignore и в репозиторий не
+попадает. Лежавший в репозитории стоп-лист сам публиковал названия, которые
+должен был скрывать. Поэтому проверка считает ошибкой и отсутствие файла
+(проверять нечем — его заводит setup.ps1), и его возвращение под git.
+
 Запуск:
     python tools/check_docs.py
     python tools/check_docs.py --project "C:\путь\к\папке\проекта"
@@ -95,6 +100,22 @@ def hook_enabled():
         return False
 
 
+def stoplist_tracked():
+    """Лежит ли tools/stoplist.txt под git (а должен быть только локальным).
+
+    .gitignore не мешает вернуть файл в репозиторий через git add -f или
+    при слиянии старой ветки; тогда при следующем push приметы изделий
+    снова уйдут наружу.
+    """
+    try:
+        out = subprocess.check_output(
+            ["git", "ls-files", "--", "tools/stoplist.txt"],
+            cwd=ROOT, stderr=subprocess.DEVNULL)
+        return bool(out.strip())
+    except Exception:
+        return False
+
+
 def repo_files():
     """Все текстовые файлы набора, кроме служебных и самого стоп-листа."""
     out = []
@@ -113,11 +134,13 @@ def repo_files():
 
 
 def stop_words():
-    """Стоп-слова из tools/stoplist.txt."""
+    """Стоп-слова из локального tools/stoplist.txt."""
     if not os.path.exists(STOPLIST):
         return set()
     out = set()
-    for line in read(STOPLIST).splitlines():
+    # utf-8-sig: файл, сохранённый Блокнотом с BOM, не должен дать
+    # стоп-слово из одного невидимого символа
+    for line in io.open(STOPLIST, encoding="utf-8-sig").read().splitlines():
         line = line.split("#", 1)[0].strip()
         if line:
             out.add(line)
@@ -237,6 +260,18 @@ def main(project_dir=None):
     # утекло через CHANGELOG.md, который в прежнюю проверку не попадал.
     # Сравнение регистронезависимое: прежняя проверка сверяла регистр, и
     # название с большой буквы прошло мимо строчного стоп-слова.
+    # Стоп-лист — только локальный: лежавший в репозитории сам публиковал
+    # названия, которые должен был скрывать.
+    if not os.path.exists(STOPLIST):
+        problems.append(
+            "нет tools/stoplist.txt — проверять набор не по чему. Файл "
+            "локальный (в .gitignore); заводит его setup.ps1, приметы "
+            "изделий вписываются туда")
+    if stoplist_tracked():
+        problems.append(
+            "tools/stoplist.txt снова под git — при push приметы изделий "
+            "уйдут в публичный репозиторий. Убрать: "
+            "git rm --cached tools/stoplist.txt")
     project = project_words(project_dir)
     if project:
         print("Приметы изделия из папки проекта: %s\n"

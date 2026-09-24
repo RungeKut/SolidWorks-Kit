@@ -9,7 +9,8 @@
 #      чтобы скилл подхватывался Claude Code из любого каталога;
 #   3. прописывает переменную SWKIT_HOME в профиль пользователя;
 #   4. включает хук commit-msg, который не пропускает в сообщение коммита
-#      название проектируемого изделия;
+#      название проектируемого изделия, и заводит локальный стоп-лист
+#      tools\stoplist.txt (он в .gitignore и в репозиторий не попадает);
 #   5. проверяет Python, его разрядность и pywin32.
 #
 # Прав администратора не требует: junction (mklink /J) создаётся без них,
@@ -72,6 +73,19 @@ if (Get-Command git -ErrorAction SilentlyContinue) {
     Write-Host "     git config swkit.project '<путь к папке проекта>'"
 } else {
     Write-Host "НЕТ  git не найден — хук commit-msg не включён"
+}
+
+# Стоп-лист локальный: лежавший в репозитории сам публиковал названия,
+# которые должен был скрывать. Без BOM — Python читает его как UTF-8.
+$stop = Join-Path $root "tools\stoplist.txt"
+if (-not (Test-Path $stop)) {
+    $text = "# Стоп-слова: названия и приметы изделий этой машины.`r`n" +
+            "# Файл ЛОКАЛЬНЫЙ: он в .gitignore и в репозиторий не попадает.`r`n" +
+            "# Строка = подстрока, регистр не важен; # — комментарий.`r`n"
+    [IO.File]::WriteAllText($stop, $text, (New-Object Text.UTF8Encoding $false))
+    Write-Host "OK   заведён tools\stoplist.txt — впишите туда изделие до первого коммита"
+} else {
+    Write-Host "OK   tools\stoplist.txt на месте (локальный, в .gitignore)"
 }
 
 # --- 4. Python -------------------------------------------------------------

@@ -10,7 +10,8 @@ setup.ps1 (git config core.hooksPath tools/hooks). Вручную:
 
     python tools/check_msg.py .git/COMMIT_EDITMSG
 
-Стоп-слова берутся из tools/stoplist.txt. Если в конфиге репозитория задан
+Стоп-слова берутся из tools/stoplist.txt — локального файла, который в
+репозиторий не попадает (.gitignore). Если в конфиге репозитория задан
 путь к папке проекта, к ним добавляются её имя и имена лежащих там моделей:
 
     git config swkit.project "C:/путь/к/папке/проекта"
