@@ -5,6 +5,14 @@
 
 ---
 
+## 2026-09-30 — подключение к Kimi Code
+
+* `tools/setup.ps1` создаёт junction скилла не только в Claude Code
+  (`~/.claude/skills/solidworks`), но и в Kimi Code
+  (`~/.kimi-code/skills/solidworks`). Frontmatter SKILL.md (name +
+  description) совместим с обоими агентами без изменений; тексты
+  поправлены там, где упоминался только Claude Code.
+
 ## 2026-09-24
 
 * **`INDEX.md` починен.** При добавлении `30-11` ссылка на `30-10` в трёх

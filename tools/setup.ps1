@@ -5,8 +5,9 @@
 #
 # Что делает:
 #   1. находит корень набора (папку, где лежит этот скрипт, на уровень выше);
-#   2. создаёт junction ~\.claude\skills\solidworks -> <корень>\skill,
-#      чтобы скилл подхватывался Claude Code из любого каталога;
+#   2. создаёт junction ~\.claude\skills\solidworks -> <корень>\skill и
+#      ~\.kimi-code\skills\solidworks -> <корень>\skill, чтобы скилл
+#      подхватывался Claude Code и Kimi Code из любого каталога;
 #   3. прописывает переменную SWKIT_HOME в профиль пользователя;
 #   4. включает хук commit-msg, который не пропускает в сообщение коммита
 #      название проектируемого изделия, и заводит локальный стоп-лист
@@ -26,32 +27,37 @@ if (-not (Test-Path (Join-Path $root "swkit"))) {
 }
 
 # --- 1. junction для скилла ------------------------------------------------
-$skills = Join-Path $env:USERPROFILE ".claude\skills"
-if (-not (Test-Path $skills)) {
-    New-Item -ItemType Directory -Path $skills -Force | Out-Null
-}
-$link = Join-Path $skills "solidworks"
+# Один и тот же <корень>\skill подключается к обоим агентам: Claude Code
+# ищет скиллы в ~\.claude\skills, Kimi Code — в ~\.kimi-code\skills.
 $target = Join-Path $root "skill"
-
-if (Test-Path $link) {
-    $item = Get-Item $link -Force
-    $current = $null
-    if ($item.LinkType) { $current = $item.Target | Select-Object -First 1 }
-    if ($current -eq $target) {
-        Write-Host "OK   junction уже указывает куда нужно"
-    } else {
-        Write-Host "     junction ведёт в другое место ($current) — пересоздаю"
-        if ($item.LinkType) {
-            cmd /c rmdir "$link" | Out-Null
-        } else {
-            throw "$link — обычная папка, а не ссылка. Уберите её вручную и повторите."
-        }
-        cmd /c mklink /J "$link" "$target" | Out-Null
-        Write-Host "OK   junction создан"
+foreach ($skills in @(
+    (Join-Path $env:USERPROFILE ".claude\skills"),
+    (Join-Path $env:USERPROFILE ".kimi-code\skills"))) {
+    if (-not (Test-Path $skills)) {
+        New-Item -ItemType Directory -Path $skills -Force | Out-Null
     }
-} else {
-    cmd /c mklink /J "$link" "$target" | Out-Null
-    Write-Host "OK   junction создан: $link -> $target"
+    $link = Join-Path $skills "solidworks"
+
+    if (Test-Path $link) {
+        $item = Get-Item $link -Force
+        $current = $null
+        if ($item.LinkType) { $current = $item.Target | Select-Object -First 1 }
+        if ($current -eq $target) {
+            Write-Host "OK   junction уже указывает куда нужно: $link"
+        } else {
+            Write-Host "     junction $link ведёт в другое место ($current) — пересоздаю"
+            if ($item.LinkType) {
+                cmd /c rmdir "$link" | Out-Null
+            } else {
+                throw "$link — обычная папка, а не ссылка. Уберите её вручную и повторите."
+            }
+            cmd /c mklink /J "$link" "$target" | Out-Null
+            Write-Host "OK   junction создан: $link -> $target"
+        }
+    } else {
+        cmd /c mklink /J "$link" "$target" | Out-Null
+        Write-Host "OK   junction создан: $link -> $target"
+    }
 }
 
 # --- 2. SWKIT_HOME ---------------------------------------------------------
@@ -146,5 +152,5 @@ Write-Host "OK   pywin32 на месте"
 & $py -c "import sys; sys.path.insert(0, r'$root'); import swkit; print('OK   swkit', swkit.__version__)"
 
 Write-Host ""
-Write-Host "Готово. Перезапустите Claude Code, чтобы он увидел скилл /solidworks."
+Write-Host "Готово. Перезапустите Claude Code и Kimi Code, чтобы они увидели скилл (/solidworks и /skill:solidworks)."
 Write-Host "Запуск скриптов: & '$py' скрипт.py"
