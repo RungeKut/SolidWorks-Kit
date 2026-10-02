@@ -7,8 +7,43 @@ description: Моделирование в SolidWorks скриптами чер�
 
 Набор — git-репозиторий, общий для нескольких машин. Корень находится так:
 переменная `SWKIT_HOME`, иначе junction `~/.claude/skills/solidworks`
-(Claude Code) или `~/.kimi-code/skills/solidworks` (Kimi Code) — ведут в
+(Claude Code), `~/.kimi-code/skills/solidworks` (Kimi Code) или
+`~/.config/opencode/skills/solidworks` (opencode) — ведут в
 `<корень>/skill`.
+
+## Установка на новой машине
+
+Задача вида «поставь набор, вот ссылка на GitHub» выполняется так:
+
+```powershell
+git clone https://github.com/RungeKut/SolidWorks-Kit.git
+cd SolidWorks-Kit
+powershell -ExecutionPolicy Bypass -File tools\setup.ps1
+```
+
+Скрипт сам создаёт junction'ы к Claude Code и Kimi Code, ставит `SWKIT_HOME`
+в профиль пользователя, включает хук `commit-msg`, заводит локальный
+`tools\stoplist.txt`, проверяет Python (64-bit) и ставит `pywin32`. Прав
+администратора не требует.
+
+**Для opencode junction создаётся отдельно** — одной командой:
+
+```powershell
+cmd /c mklink /J "$env:USERPROFILE\.config\opencode\skills\solidworks" `
+    "<корень набора>\skill"
+```
+
+Четыре ошибки, на которые уходит время:
+
+| Ошибка | Что будет | Как правильно |
+|---|---|---|
+| Junction на **корень репозитория**, а не на `<корень>\skill` | opencode не найдёт `SKILL.md` (в каталоге скила он обязан лежать прямо), либо в агент протащится весь репозиторий вместе с `.git` | цель junction — `<корень>\skill` |
+| **Копия** набора в `skills/` вместо junction | правка в одном агенте не появится в другом; расхождение всплывёт через месяцы | только junction |
+| `description` без кавычек, а в нём есть `: ` (двоеточие с пробелом) | YAML-парсер рвёт значение — скилл молча не загружается | значение обернуть в кавычки |
+| Проверка junction через `Get-ChildItem -Recurse` | PowerShell 5.1 не заходит в junction: вывод пустой, junction кажется сломанным | `Test-Path` на конкретный файл |
+
+Подробности установки и разбор сети junction'ов — `knowledge/40_СРЕДА/40-01`,
+«Подключение агентов».
 
 ## ОБЯЗАТЕЛЬНО: синхронизация репозитория
 
